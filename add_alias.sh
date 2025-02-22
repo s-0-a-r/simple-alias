@@ -17,7 +17,7 @@ case "$SHELL_NAME" in
     ;;
   fish)
     CONFIG_FILE="$HOME/.config/fish/config.fish"
-    ALIAS_COMMAND="abbr"
+    ALIAS_COMMAND="abbr -a"
     ;;
   *)
     echo "Unsupported shell environment: $SHELL_NAME"
@@ -36,20 +36,25 @@ echo "" >> "$CONFIG_FILE"
 echo "# Additional aliases" >> "$CONFIG_FILE"
 
 # Read aliases list and write to config file
-while IFS='=' read -r name value; do
+while IFS=',' read -r name value; do
   # Skip empty lines
   [ -z "$name" ] && continue
 
-  # Check for existing alias
-  if [[ "$SHELL_NAME" == "fish" ]]; then
-    existing_alias=$(abbr -a | grep "^$name\s" || true)
+  echo "Processing: $name = $value"
+
+  if [ "$SHELL_NAME" = "fish" ]; then
+    existing_alias=$(grep "^abbr -a $name " "$CONFIG_FILE" 2>/dev/null || true)
   else
-    existing_alias=$(alias | grep "^$name=" || true)
+    existing_alias=$(grep "^alias $name=" "$CONFIG_FILE" 2>/dev/null || true)
   fi
 
-  # Add only if alias doesn't exist
   if [ -z "$existing_alias" ]; then
-    echo "$ALIAS_COMMAND $line" >> "$CONFIG_FILE"
+    if [ "$SHELL_NAME" = "fish" ]; then
+      echo "$ALIAS_COMMAND $name '$value'" >> "$CONFIG_FILE"
+    else
+      echo "$ALIAS_COMMAND $name='$value'" >> "$CONFIG_FILE"
+    fi
+    echo "Added alias: $name"
   else
     echo "Alias '$name' already exists. Skipping."
   fi
@@ -59,12 +64,14 @@ echo "Registered aliases in: $CONFIG_FILE"
 
 # Reload config file
 case "$SHELL_NAME" in
-  bash | zsh)
-    source "$CONFIG_FILE"
+  bash)
+    exec bash -l
+    ;;
+  zsh)
+    exec zsh -l
     ;;
   fish)
-    source "$CONFIG_FILE"
-    fish_update_completions
+    exec fish -l
     ;;
 esac
 
