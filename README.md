@@ -1,0 +1,2 @@
+# simple-alias
+add aliases
